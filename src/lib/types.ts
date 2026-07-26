@@ -1,100 +1,80 @@
 /**
- * Type definitions for Philippine election data
+ * Type definitions for Philippine election calculator
  */
 
-export type ElectionLevel = 'barangay' | 'municipal' | 'provincial' | 'national';
-export type Position = 'President' | 'Vice President' | 'Senator' | 'Mayor' | 'Vice Mayor' | 'Councilor' | 'Barangay Captain' | 'Barangay Councilor' | string;
+export type ElectionPosition = 'barangay_captain' | 'barangay_councilor' | 'sk_chairperson' | 'sk_councilor';
 
 /**
- * Represents a geographic location in the Philippines
+ * Position details and seat information
  */
-export interface Location {
-  province: string;
-  municipality?: string;
-  barangay?: string;
-  level: ElectionLevel;
+export interface PositionInfo {
+  id: ElectionPosition;
+  label: string;
+  seats: number; // 1 for single seat, multiple for multi-seat
+  category: 'barangay' | 'sk';
+  description: string;
 }
 
 /**
- * Raw row from COMELEC CSV import
+ * Candidate entry with vote data
  */
-export interface ComelecRawRow {
-  province: string;
-  municipality?: string;
-  barangay?: string;
-  candidate_name: string;
-  candidate_party?: string;
-  votes: string | number;
-  position: string;
-  precinct_no?: string;
-  registered_voters?: string | number;
-  actual_voters?: string | number;
-  [key: string]: any;
-}
-
-/**
- * Parsed candidate result from election
- */
-export interface CandidateResult {
+export interface Candidate {
   name: string;
-  party?: string;
   votes: number;
-  percentage?: number;
 }
 
 /**
- * Election result set for a specific location and position
+ * Previous election results
  */
-export interface ElectionResult {
-  location: Location;
-  position: Position;
-  electionYear: number;
-  candidates: CandidateResult[];
+export interface PreviousElectionData {
+  position: ElectionPosition;
+  year: number;
+  candidates: Candidate[];
   totalVotes: number;
-  registeredVoters?: number;
-  actualVoters?: number;
-  turnoutRate?: number;
+  registeredVoters: number;
+  actualVoters: number;
+  turnoutRate: number; // calculated
 }
 
 /**
- * Projection parameters for vote calculation
+ * Calculation parameters
  */
-export interface ProjectionParams {
-  voterGrowthRate: number; // as decimal: 0.05 for 5%
-  turnoutRate: number; // as decimal: 0.60 for 60%
-  baseElectionYear: number; // year of base data
-  projectionYear: number; // year to project to
+export interface CalculationParams {
+  voterGrowthRate: number; // as decimal: 0.03 for 3%
+  expectedTurnoutRate: number; // as decimal: 0.65 for 65%
+  baseYear: number;
+  projectionYear: number;
 }
 
 /**
- * Projected votes for a candidate
+ * Vote projection for a candidate
  */
 export interface VoteProjection {
   candidateName: string;
-  originalVotes: number;
-  originalPercentage: number;
+  previousVotes: number;
+  previousPercentage: number;
   projectedVotes: number;
   projectedPercentage: number;
   rank: number;
 }
 
 /**
- * Calculation result showing votes needed to win
+ * Final calculation result
  */
-export interface WinningThreshold {
-  position: Position;
-  numberOfSeats: number; // 1 for mayor, multiple for councilors/senators
+export interface CalculationResult {
+  position: PositionInfo;
+  baseYear: number;
+  projectionYear: number;
+  previousTotalVotes: number;
   projectedTotalVotes: number;
-  votesNeededForRank: { [rank: number]: number }; // votes needed for 1st, 2nd, 3rd place etc
+  previousTurnout: number;
+  projectedTurnout: number;
+  numberOfSeats: number;
   projections: VoteProjection[];
-}
-
-/**
- * Represents a complete election dataset
- */
-export interface ElectionDataset {
-  electionYear: number;
-  electionType: 'national' | 'local' | 'barangay';
-  results: ElectionResult[];
-  lastUpdated: Date;
+  votesNeededByRank: { [rank: number]: number };
+  analysis: {
+    winningVotes: number; // votes needed for 1st place
+    secondPlaceVotes?: number; // votes needed for 2nd place (if applicable)
+    marginToWin: { [candidateIndex: number]: number }; // votes needed to match/beat top candidate
+  };
 }
