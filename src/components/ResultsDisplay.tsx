@@ -1,130 +1,211 @@
 'use client';
 
-import React from 'react';
-import { ElectionResult } from '../lib/types';
+import React, { useState } from 'react';
+import { getAllPositions, getPositionInfo, formatNumber, formatPercentage } from '../lib/data';
+import { CalculationResult } from '../lib/types';
 
 interface ResultsDisplayProps {
-  results: ElectionResult[] | null;
-  selectedPosition?: string;
+  result: CalculationResult | null;
 }
 
-const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
-  results,
-  selectedPosition,
-}) => {
-  if (!results || results.length === 0) {
-    return <div className="results-display">No results to display</div>;
+const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ result }) => {
+  if (!result) {
+    return null;
   }
 
-  // Filter by position if specified
-  const filteredResults = selectedPosition
-    ? results.filter((r) => r.position === selectedPosition)
-    : results;
-
-  if (filteredResults.length === 0) {
-    return <div className="results-display">No results for this position</div>;
-  }
+  const { position, projections, votesNeededByRank, previousTotalVotes, projectedTotalVotes } = result;
 
   return (
     <div className="results-display">
-      <h3>Previous Election Results</h3>
+      <h3>📊 Calculation Results</h3>
 
-      {filteredResults.map((result, index) => (
-        <div key={index} className="result-card">
-          <h4>
-            {result.location.barangay && `${result.location.barangay}, `}
-            {result.location.municipality && `${result.location.municipality}, `}
-            {result.location.province}
-          </h4>
-          <p className="position">Position: {result.position}</p>
-          <p className="year">Election Year: {result.electionYear}</p>
-
-          {result.turnoutRate && (
-            <p className="turnout">
-              Turnout Rate: {(result.turnoutRate * 100).toFixed(2)}%
-            </p>
-          )}
-
-          <table className="candidates-table">
-            <thead>
-              <tr>
-                <th>Rank</th>
-                <th>Candidate</th>
-                <th>Party</th>
-                <th>Votes</th>
-                <th>Percentage</th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.candidates.map((candidate, candidateIndex) => (
-                <tr key={candidateIndex}>
-                  <td>{candidateIndex + 1}</td>
-                  <td>{candidate.name}</td>
-                  <td>{candidate.party || '-'}</td>
-                  <td>{candidate.votes.toLocaleString()}</td>
-                  <td>{(candidate.percentage || 0).toFixed(2)}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <p className="total-votes">
-            Total Votes: {result.totalVotes.toLocaleString()}
+      <div className="summary-cards">
+        <div className="card">
+          <p className="label">Position</p>
+          <p className="value">{position.label}</p>
+        </div>
+        <div className="card">
+          <p className="label">Previous Total Votes</p>
+          <p className="value">{formatNumber(previousTotalVotes)}</p>
+        </div>
+        <div className="card">
+          <p className="label">Projected Total Votes</p>
+          <p className="value">{formatNumber(projectedTotalVotes)}</p>
+        </div>
+        <div className="card">
+          <p className="label">Votes Growth</p>
+          <p className="value" style={{
+            color: projectedTotalVotes >= previousTotalVotes ? '#4caf50' : '#f44336'
+          }}>
+            {formatNumber(projectedTotalVotes - previousTotalVotes)}
           </p>
         </div>
-      ))}
+      </div>
+
+      <div className="votes-needed-section">
+        <h4>🏆 Votes Needed for Each Rank</h4>
+        <div className="votes-grid">
+          {Object.entries(votesNeededByRank).map(([rank, votes]) => (
+            <div key={rank} className="vote-card">
+              <p className="rank">Rank #{rank}</p>
+              <p className="votes">{formatNumber(votes)}</p>
+              <p className="percentage">{formatPercentage((votes / projectedTotalVotes) * 100)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="projections-section">
+        <h4>👥 Candidate Projections</h4>
+        <table className="projections-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Candidate Name</th>
+              <th>Previous Votes</th>
+              <th>Projected Votes</th>
+              <th>Vote Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {projections.map((proj, index) => (
+              <tr key={index}>
+                <td className="rank-cell">#{proj.rank}</td>
+                <td>{proj.candidateName}</td>
+                <td>{formatNumber(proj.previousVotes)}</td>
+                <td className="projected-votes">{formatNumber(proj.projectedVotes)}</td>
+                <td>{formatPercentage(proj.projectedPercentage)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <style jsx>{`
         .results-display {
-          padding: 1rem;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          background-color: #fafafa;
+          padding: 2rem;
+          background-color: #f8f9fa;
+          border-radius: 8px;
+          margin-top: 2rem;
         }
-        .result-card {
-          margin-bottom: 2rem;
-          padding: 1rem;
-          border: 1px solid #eee;
-          border-radius: 4px;
-          background-color: white;
-        }
-        h4 {
-          margin: 0 0 0.5rem 0;
+
+        h3 {
+          margin-bottom: 1.5rem;
           color: #333;
         }
-        .position,
-        .year,
-        .turnout {
-          margin: 0.25rem 0;
-          color: #666;
-          font-size: 0.95rem;
+
+        .summary-cards {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 1rem;
+          margin-bottom: 2rem;
         }
-        .candidates-table {
+
+        .card {
+          background: white;
+          padding: 1rem;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .card .label {
+          font-size: 0.85rem;
+          color: #666;
+          margin: 0 0 0.5rem 0;
+          font-weight: 500;
+        }
+
+        .card .value {
+          font-size: 1.5rem;
+          font-weight: bold;
+          color: #1976d2;
+          margin: 0;
+        }
+
+        .votes-needed-section {
+          margin-bottom: 2rem;
+        }
+
+        h4 {
+          margin-bottom: 1rem;
+          color: #333;
+        }
+
+        .votes-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          gap: 1rem;
+        }
+
+        .vote-card {
+          background: white;
+          padding: 1rem;
+          border-radius: 8px;
+          border-left: 4px solid #1976d2;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .vote-card .rank {
+          font-size: 0.9rem;
+          color: #666;
+          margin: 0 0 0.5rem 0;
+        }
+
+        .vote-card .votes {
+          font-size: 1.3rem;
+          font-weight: bold;
+          color: #1976d2;
+          margin: 0 0 0.5rem 0;
+        }
+
+        .vote-card .percentage {
+          font-size: 0.9rem;
+          color: #999;
+          margin: 0;
+        }
+
+        .projections-section {
+          background: white;
+          padding: 1.5rem;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .projections-table {
           width: 100%;
           border-collapse: collapse;
-          margin: 1rem 0;
-          font-size: 0.9rem;
+          margin-top: 1rem;
         }
+
         thead {
-          background-color: #f0f0f0;
+          background-color: #e3f2fd;
         }
+
         th {
           padding: 0.75rem;
           text-align: left;
           font-weight: 600;
-          border-bottom: 2px solid #ddd;
+          color: #1976d2;
+          border-bottom: 2px solid #90caf9;
         }
+
         td {
-          padding: 0.5rem 0.75rem;
+          padding: 0.75rem;
           border-bottom: 1px solid #eee;
         }
-        tr:hover {
-          background-color: #f9f9f9;
-        }
-        .total-votes {
-          margin-top: 0.5rem;
+
+        .rank-cell {
           font-weight: 600;
-          color: #333;
+          color: #1976d2;
+        }
+
+        .projected-votes {
+          font-weight: 600;
+          color: #4caf50;
+        }
+
+        tbody tr:hover {
+          background-color: #f5f5f5;
         }
       `}</style>
     </div>
